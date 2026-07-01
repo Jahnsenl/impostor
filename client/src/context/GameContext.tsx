@@ -3,7 +3,8 @@ import type { ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { GameState } from '../types/game';
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL ?? '';
+const isInDiscord = window.self !== window.top;
+const SERVER_URL = isInDiscord ? '' : (import.meta.env.VITE_SERVER_URL ?? '');
 
 interface GameContextType {
   gameState: GameState;
