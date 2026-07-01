@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react';
 import { useDiscordSDK } from './hooks/useDiscordSDK';
 import { GameProvider, useGame } from './context/GameContext';
 import { Lobby } from './components/Lobby';
@@ -59,33 +58,7 @@ function GameContent() {
 }
 
 function AppWithProvider() {
-  const { discordSdk, isReady, error, roomId } = useDiscordSDK();
-  const [userId] = useState(() => {
-    const stored = sessionStorage.getItem('impostor-userId');
-    if (stored) return stored;
-    const id = 'player-' + Math.random().toString(36).slice(2, 8);
-    sessionStorage.setItem('impostor-userId', id);
-    return id;
-  });
-  const [username, setUsername] = useState(() => {
-    const stored = sessionStorage.getItem('impostor-username');
-    if (stored) return stored;
-    const name = 'Jugador-' + Math.random().toString(36).slice(2, 5).toUpperCase();
-    sessionStorage.setItem('impostor-username', name);
-    return name;
-  });
-  const [avatar, setAvatar] = useState('');
-
-  useEffect(() => {
-    if (!isReady || !discordSdk) return;
-    discordSdk.commands.authenticate({}).then((auth: any) => {
-      if (auth?.user) {
-        const u = auth.user;
-        setUsername(u.global_name ?? u.username ?? 'Jugador');
-        if (u.avatar) setAvatar(`https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png`);
-      }
-    }).catch(() => {});
-  }, [isReady, discordSdk]);
+  const { isReady, error, roomId, userId, username, avatar } = useDiscordSDK();
 
   if (error) return <div className="error"><h1>Error</h1><p>{error}</p></div>;
   if (!isReady) return <div className="loading"><h1>Cargando...</h1><p>Conectando con Discord...</p></div>;

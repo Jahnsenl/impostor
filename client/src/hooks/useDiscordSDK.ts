@@ -13,15 +13,70 @@ export function useDiscordSDK() {
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!discordSdk) { setIsReady(true); return; }
+  const [userId, setUserId] = useState(() => {
+    const stored = sessionStorage.getItem('impostor-userId');
+    if (stored) return stored;
+    const id = 'player-' + Math.random().toString(36).slice(2, 8);
+    sessionStorage.setItem('impostor-userId', id);
+    return id;
+  });
 
-    discordSdk.ready()
-      .then(() => setIsReady(true))
-      .catch(err => setError(err instanceof Error ? err.message : 'Discord SDK error'));
-  }, []);
+  const [username, setUsername] = useState(() => {
+    const stored = sessionStorage.getItem('impostor-username');
+    if (stored) return stored;
+    const name = 'Jugador-' + Math.random().toString(36).slice(2, 5).toUpperCase();
+    sessionStorage.setItem('impostor-username', name);
+    return name;
+  });
+
+  const [avatar, setAvatar] = useState('');
 
   const roomId = discordSdk ? discordSdk.instanceId : 'dev-room';
 
-  return { discordSdk, isReady, error, roomId };
+  useEffect(() => {
+    if (!discordSdk) {
+      setIsReady(true);
+      return;
+    }
+
+    discordSdk.ready()
+      .then(async () => {
+        try {
+          const { code } = await discordSdk!.commands.authorize({
+            client_id: clientId,
+            response_type: 'code',
+            state: '',
+            prompt: 'none',
+            scope: ['identify'],
+          });
+
+          const tokenRes = await fetch('/api/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ code }),
+          });
+          const { access_token } = await tokenRes.json();
+
+          const auth = await discordSdk!.commands.authenticate({ access_token });
+
+          if (auth?.user) {
+            const u = auth.user;
+            const name = u.global_name ?? u.username ?? 'Jugador';
+            setUserId(u.id);
+            setUsername(name);
+            sessionStorage.setItem('impostor-userId', u.id);
+            sessionStorage.setItem('impostor-username', name);
+            if (u.avatar) {
+              setAvatar(`https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png`);
+            }
+          }
+        } catch (e) {
+          console.error('Discord auth error:', e);
+        }
+        setIsReady(true);
+      })
+      .catch(err => setError(err instanceof Error ? err.message : 'Discord SDK error'));
+  }, []);
+
+  return { isReady, error, roomId, userId, username, avatar };
 }

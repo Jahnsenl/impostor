@@ -9,7 +9,24 @@ const io = new Server(httpServer, {
   cors: { origin: '*', methods: ['GET', 'POST'] },
 });
 
+app.use(express.json());
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
+
+app.post('/token', async (req, res) => {
+  const { code } = req.body;
+  const response = await fetch('https://discord.com/api/oauth2/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: process.env.DISCORD_CLIENT_ID ?? '',
+      client_secret: process.env.DISCORD_CLIENT_SECRET ?? '',
+      grant_type: 'authorization_code',
+      code,
+    }).toString(),
+  });
+  const data = await response.json() as { access_token: string };
+  res.json({ access_token: data.access_token });
+});
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
