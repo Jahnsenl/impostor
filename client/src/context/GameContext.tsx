@@ -5,6 +5,7 @@ import type { GameState } from '../types/game';
 
 const isInDiscord = window.self !== window.top;
 const SERVER_URL = isInDiscord ? '' : (import.meta.env.VITE_SERVER_URL ?? '');
+const SOCKET_PATH = isInDiscord ? '/api/socket.io' : '/socket.io';
 
 interface GameContextType {
   gameState: GameState;
@@ -52,7 +53,7 @@ export function GameProvider({
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const s = io(SERVER_URL, { path: '/api/socket.io', transports: ['polling', 'websocket'] });
+    const s = io(SERVER_URL, { path: SOCKET_PATH, transports: ['polling', 'websocket'] });
 
     s.on('connect', () => {
       setIsConnected(true);
