@@ -10,22 +10,39 @@ const io = new Server(httpServer, {
 });
 
 app.use(express.json());
+app.use((_req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  next();
+});
+
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 app.post('/token', async (req, res) => {
   const { code } = req.body;
-  const response = await fetch('https://discord.com/api/oauth2/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      client_id: process.env.DISCORD_CLIENT_ID ?? '',
-      client_secret: process.env.DISCORD_CLIENT_SECRET ?? '',
-      grant_type: 'authorization_code',
-      code,
-    }).toString(),
-  });
-  const data = await response.json() as { access_token: string };
-  res.json({ access_token: data.access_token });
+  try {
+    const response = await fetch('https://discord.com/api/oauth2/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        client_id: process.env.DISCORD_CLIENT_ID ?? '',
+        client_secret: process.env.DISCORD_CLIENT_SECRET ?? '',
+        grant_type: 'authorization_code',
+        code,
+      }).toString(),
+    });
+    const data = await response.json() as { access_token?: string; error?: string };
+    if (!response.ok || !data.access_token) {
+      console.error('[/token] Discord error:', data);
+      res.status(400).json({ error: data.error ?? 'token_error' });
+      return;
+    }
+    res.json({ access_token: data.access_token });
+  } catch (e) {
+    console.error('[/token] fetch error:', e);
+    res.status(500).json({ error: 'server_error' });
+  }
 });
 
 // ── Types ────────────────────────────────────────────────────────────────────

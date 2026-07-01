@@ -45,7 +45,7 @@ export function useDiscordSDK() {
           client_id: CLIENT_ID,
           response_type: 'code',
           state: '',
-          prompt: 'none',
+          prompt: 'consent',
           scope: ['identify'],
         });
 
