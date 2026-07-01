@@ -52,7 +52,7 @@ export function GameProvider({
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const s = io(SERVER_URL, { path: '/api/socket.io', transports: ['websocket', 'polling'] });
+    const s = io(SERVER_URL, { path: '/api/socket.io', transports: ['polling', 'websocket'] });
 
     s.on('connect', () => {
       setIsConnected(true);
