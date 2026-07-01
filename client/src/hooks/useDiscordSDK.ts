@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { DiscordSDK } from '@discord/embedded-app-sdk';
+import { DiscordSDK, OAuth2Scopes } from '@discord/embedded-app-sdk';
 
-const clientId = import.meta.env.VITE_DISCORD_CLIENT_ID;
+const clientId = import.meta.env.VITE_DISCORD_CLIENT_ID as string | undefined;
 const isInDiscord = window.self !== window.top;
 
 let discordSdk: DiscordSDK | null = null;
@@ -43,11 +43,11 @@ export function useDiscordSDK() {
       .then(async () => {
         try {
           const { code } = await discordSdk!.commands.authorize({
-            client_id: clientId,
+            client_id: clientId!,
             response_type: 'code',
             state: '',
             prompt: 'none',
-            scope: ['identify'],
+            scope: [OAuth2Scopes.Identify],
           });
 
           const tokenRes = await fetch('/api/token', {
@@ -55,7 +55,12 @@ export function useDiscordSDK() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ code }),
           });
-          const { access_token } = await tokenRes.json();
+
+          if (!tokenRes.ok) {
+            throw new Error(`Token endpoint error: ${tokenRes.status}`);
+          }
+
+          const { access_token } = await tokenRes.json() as { access_token: string };
 
           const auth = await discordSdk!.commands.authenticate({ access_token });
 
@@ -71,11 +76,15 @@ export function useDiscordSDK() {
             }
           }
         } catch (e) {
-          console.error('Discord auth error:', e);
+          console.error('[Discord Auth]', e);
         }
         setIsReady(true);
       })
-      .catch(err => setError(err instanceof Error ? err.message : 'Discord SDK error'));
+      .catch(err => {
+        console.error('[Discord SDK ready]', err);
+        setError(err instanceof Error ? err.message : 'Discord SDK error');
+        setIsReady(true);
+      });
   }, []);
 
   return { isReady, error, roomId, userId, username, avatar };
