@@ -2,21 +2,34 @@ import { useEffect, useState } from 'react';
 import { DiscordSDK } from '@discord/embedded-app-sdk';
 
 const CLIENT_ID = '1521711785466531851';
-const isInDiscord = window.self !== window.top;
 
-let discordSdk: DiscordSDK | null = null;
-if (isInDiscord) {
-  discordSdk = new DiscordSDK(CLIENT_ID);
+function getIsInDiscord() {
+  try {
+    return window.self !== window.top;
+  } catch {
+    return true;
+  }
+}
+
+const isInDiscord = getIsInDiscord();
+
+function makeRandomName() {
+  return 'Jugador-' + Math.random().toString(36).slice(2, 5).toUpperCase();
+}
+
+function makeRandomId() {
+  return 'player-' + Math.random().toString(36).slice(2, 8);
 }
 
 export function useDiscordSDK() {
   const [isReady, setIsReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [roomId, setRoomId] = useState('dev-room');
 
-  const [userId, setUserId] = useState(() => {
+  const [userId] = useState(() => {
     const stored = sessionStorage.getItem('impostor-userId');
     if (stored) return stored;
-    const id = 'player-' + Math.random().toString(36).slice(2, 8);
+    const id = makeRandomId();
     sessionStorage.setItem('impostor-userId', id);
     return id;
   });
@@ -24,25 +37,33 @@ export function useDiscordSDK() {
   const [username, setUsername] = useState(() => {
     const stored = sessionStorage.getItem('impostor-username');
     if (stored) return stored;
-    const name = 'Jugador-' + Math.random().toString(36).slice(2, 5).toUpperCase();
+    const name = makeRandomName();
     sessionStorage.setItem('impostor-username', name);
     return name;
   });
 
   const [avatar, setAvatar] = useState('');
 
-  const roomId = discordSdk ? discordSdk.instanceId : 'dev-room';
-
   useEffect(() => {
-    if (!discordSdk) {
+    if (!isInDiscord) {
       setIsReady(true);
       return;
     }
 
-    discordSdk.ready()
+    let sdk: DiscordSDK;
+    try {
+      sdk = new DiscordSDK(CLIENT_ID);
+      setRoomId(sdk.instanceId);
+    } catch (e) {
+      console.error('[Discord SDK init]', e);
+      setIsReady(true);
+      return;
+    }
+
+    sdk.ready()
       .then(async () => {
         try {
-          const { code } = await discordSdk!.commands.authorize({
+          const { code } = await sdk.commands.authorize({
             client_id: CLIENT_ID,
             response_type: 'code',
             state: '',
@@ -56,23 +77,18 @@ export function useDiscordSDK() {
             body: JSON.stringify({ code }),
           });
 
-          if (!tokenRes.ok) {
-            throw new Error(`Token error: ${tokenRes.status}`);
-          }
-
           const { access_token } = await tokenRes.json() as { access_token: string };
-
-          const auth = await discordSdk!.commands.authenticate({ access_token });
+          const auth = await sdk.commands.authenticate({ access_token });
 
           if (auth?.user) {
             const u = auth.user;
-            const name = u.global_name ?? u.username ?? 'Jugador';
-            setUserId(u.id);
+            const name = u.global_name ?? u.username ?? makeRandomName();
+            const uid = u.id ?? userId;
             setUsername(name);
-            sessionStorage.setItem('impostor-userId', u.id);
+            sessionStorage.setItem('impostor-userId', uid);
             sessionStorage.setItem('impostor-username', name);
             if (u.avatar) {
-              setAvatar(`https://cdn.discordapp.com/avatars/${u.id}/${u.avatar}.png`);
+              setAvatar(`https://cdn.discordapp.com/avatars/${uid}/${u.avatar}.png`);
             }
           }
         } catch (e) {
@@ -82,10 +98,10 @@ export function useDiscordSDK() {
       })
       .catch(err => {
         console.error('[Discord SDK ready]', err);
-        setError(err instanceof Error ? err.message : 'Discord SDK error');
+        setError(err instanceof Error ? err.message : String(err));
         setIsReady(true);
       });
-  }, []);
+  }, [userId]);
 
   return { isReady, error, roomId, userId, username, avatar };
 }
