@@ -19,6 +19,8 @@ function GameContent() {
     );
   }
 
+  const sortedPlayers = [...gameState.players].sort((a, b) => b.score - a.score);
+
   const renderPhase = () => {
     switch (gameState.phase) {
       case 'lobby':      return <Lobby />;
@@ -29,8 +31,6 @@ function GameContent() {
       default:           return <Lobby />;
     }
   };
-
-  const sortedPlayers = [...gameState.players].sort((a, b) => b.score - a.score);
 
   return (
     <div className="app">
@@ -57,19 +57,12 @@ function GameContent() {
   );
 }
 
-function AppWithProvider() {
-  const { isReady, error, roomId, userId, username, avatar } = useDiscordSDK();
-
-  if (error) return <div className="error"><h1>Error</h1><p>{error}</p></div>;
-  if (!isReady) return <div className="loading"><h1>Cargando...</h1><p>Conectando con Discord...</p></div>;
+export default function App() {
+  const { roomId, userId, username, avatar } = useDiscordSDK();
 
   return (
     <GameProvider roomId={roomId} currentUserId={userId} currentUsername={username} currentAvatar={avatar}>
       <GameContent />
     </GameProvider>
   );
-}
-
-export default function App() {
-  return <AppWithProvider />;
 }
