@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { DiscordSDK, OAuth2Scopes } from '@discord/embedded-app-sdk';
+import { DiscordSDK } from '@discord/embedded-app-sdk';
 
-const clientId = import.meta.env.VITE_DISCORD_CLIENT_ID as string | undefined;
+const CLIENT_ID = '1521711785466531851';
 const isInDiscord = window.self !== window.top;
 
 let discordSdk: DiscordSDK | null = null;
-if (isInDiscord && clientId) {
-  discordSdk = new DiscordSDK(clientId);
+if (isInDiscord) {
+  discordSdk = new DiscordSDK(CLIENT_ID);
 }
 
 export function useDiscordSDK() {
@@ -43,11 +43,11 @@ export function useDiscordSDK() {
       .then(async () => {
         try {
           const { code } = await discordSdk!.commands.authorize({
-            client_id: clientId!,
+            client_id: CLIENT_ID,
             response_type: 'code',
             state: '',
             prompt: 'none',
-            scope: [OAuth2Scopes.Identify],
+            scope: ['identify'],
           });
 
           const tokenRes = await fetch('/api/token', {
@@ -57,7 +57,7 @@ export function useDiscordSDK() {
           });
 
           if (!tokenRes.ok) {
-            throw new Error(`Token endpoint error: ${tokenRes.status}`);
+            throw new Error(`Token error: ${tokenRes.status}`);
           }
 
           const { access_token } = await tokenRes.json() as { access_token: string };
