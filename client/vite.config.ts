@@ -12,7 +12,7 @@ export default defineConfig({
       "Access-Control-Allow-Origin": "*",
     },
     proxy: {
-      "/socket.io": {
+      "/api": {
         target: "http://localhost:3001",
         ws: true,
         changeOrigin: true,

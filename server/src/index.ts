@@ -6,6 +6,7 @@ import { WORDS } from './words';
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
+  path: '/api/socket.io',
   cors: { origin: '*', methods: ['GET', 'POST'] },
 });
 
