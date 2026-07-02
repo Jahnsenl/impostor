@@ -55,7 +55,7 @@ export function GameProvider({
   const [isConnected, setIsConnected] = useState(false);
 
   useEffect(() => {
-    const s = io(SERVER_URL, { path: SOCKET_PATH, transports: ['polling', 'websocket'] });
+    const s = io(SERVER_URL, { path: SOCKET_PATH, transports: isInDiscord ? ['polling'] : ['polling', 'websocket'] });
 
     s.on('connect', () => {
       setIsConnected(true);
