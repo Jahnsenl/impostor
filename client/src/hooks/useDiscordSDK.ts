@@ -9,7 +9,6 @@ const isInDiscord =
 
 export function useDiscordSDK() {
   const [roomId, setRoomId] = useState('dev-room');
-  const [authStep, setAuthStep] = useState(isInDiscord ? 'discord-ok' : 'no-discord');
 
   const [userId, setUserId] = useState(() => {
     const s = sessionStorage.getItem('impostor-userId');
@@ -36,16 +35,12 @@ export function useDiscordSDK() {
     try {
       sdk = new DiscordSDK(CLIENT_ID);
       setRoomId(sdk.instanceId);
-      setAuthStep('sdk-created');
-    } catch (e) {
-      setAuthStep(`sdk-err:${e instanceof Error ? e.message.slice(0, 25) : 'unk'}`);
+    } catch {
       return;
     }
 
     sdk.ready().then(async () => {
-      setAuthStep('ready');
       try {
-        setAuthStep('authorizing');
         const { code } = await sdk.commands.authorize({
           client_id: CLIENT_ID,
           response_type: 'code',
@@ -54,22 +49,15 @@ export function useDiscordSDK() {
           scope: ['identify'],
         });
 
-        setAuthStep('fetching-token');
         const res = await fetch('/api/token', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ code }),
         });
 
-        if (!res.ok) {
-          setAuthStep(`token-http-${res.status}`);
-          return;
-        }
+        if (!res.ok) return;
 
-        setAuthStep('parsing');
         const { access_token } = await res.json() as { access_token: string };
-
-        setAuthStep('authenticating');
         const auth = await sdk.commands.authenticate({ access_token });
 
         if (auth?.user) {
@@ -83,27 +71,12 @@ export function useDiscordSDK() {
           if (u.avatar) {
             setAvatar(`https://cdn.discordapp.com/avatars/${uid}/${u.avatar}.png`);
           }
-          setAuthStep('done');
-        } else {
-          setAuthStep('auth-no-user');
         }
       } catch (e) {
-        let msg: string;
-        if (e instanceof Error) {
-          msg = e.message.slice(0, 40);
-        } else {
-          try { msg = JSON.stringify(e).slice(0, 60); } catch { msg = 'unknown'; }
-        }
-        setAuthStep(`err:${msg}`);
         console.error('[Discord Auth]', e);
       }
-    }).catch(e => {
-      let msg: string;
-      try { msg = JSON.stringify(e).slice(0, 40); } catch { msg = String(e).slice(0, 40); }
-      setAuthStep(`ready-err:${msg}`);
-      console.error('[Discord ready]', e);
-    });
+    }).catch(e => console.error('[Discord ready]', e));
   }, []);
 
-  return { roomId, userId, username, avatar, authStep };
+  return { roomId, userId, username, avatar };
 }

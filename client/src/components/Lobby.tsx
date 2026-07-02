@@ -4,7 +4,7 @@ const PLAYER_EMOJIS = ['👑', '🤖', '🧙‍♂️', '🕵️', '🦊', '🐺
 const MAX_PLAYERS = 8;
 
 export function Lobby() {
-  const { gameState, startGame, setImpostorCount, setDebateTime, setGiveImpostorHint, authStep } = useGame();
+  const { gameState, startGame, setImpostorCount, setDebateTime, setGiveImpostorHint } = useGame();
   const maxImpostors = Math.max(1, Math.floor(gameState.players.length / 2));
 
   const handleImpostorChange = (delta: number) => {
@@ -29,9 +29,6 @@ export function Lobby() {
     <div className="lobby">
       <h1>🎭 Impostor</h1>
       <p>Juego de deducción social para Discord</p>
-      <p style={{ fontSize: '0.6rem', opacity: 0.5, margin: '-8px 0 4px', letterSpacing: '0.02em' }}>
-        auth: {authStep}
-      </p>
 
       <div className="players-list">
         <h2>Jugadores ({gameState.players.length}/{MAX_PLAYERS})</h2>

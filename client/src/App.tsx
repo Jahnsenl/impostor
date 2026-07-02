@@ -58,10 +58,10 @@ function GameContent() {
 }
 
 export default function App() {
-  const { roomId, userId, username, avatar, authStep } = useDiscordSDK();
+  const { roomId, userId, username, avatar } = useDiscordSDK();
 
   return (
-    <GameProvider roomId={roomId} currentUserId={userId} currentUsername={username} currentAvatar={avatar} authStep={authStep}>
+    <GameProvider roomId={roomId} currentUserId={userId} currentUsername={username} currentAvatar={avatar}>
       <GameContent />
     </GameProvider>
   );
