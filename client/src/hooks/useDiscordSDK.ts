@@ -88,12 +88,18 @@ export function useDiscordSDK() {
           setAuthStep('auth-no-user');
         }
       } catch (e) {
-        const msg = e instanceof Error ? e.message.slice(0, 35) : String(e).slice(0, 35);
+        let msg: string;
+        if (e instanceof Error) {
+          msg = e.message.slice(0, 40);
+        } else {
+          try { msg = JSON.stringify(e).slice(0, 60); } catch { msg = 'unknown'; }
+        }
         setAuthStep(`err:${msg}`);
         console.error('[Discord Auth]', e);
       }
     }).catch(e => {
-      const msg = e instanceof Error ? e.message.slice(0, 25) : String(e).slice(0, 25);
+      let msg: string;
+      try { msg = JSON.stringify(e).slice(0, 40); } catch { msg = String(e).slice(0, 40); }
       setAuthStep(`ready-err:${msg}`);
       console.error('[Discord ready]', e);
     });
