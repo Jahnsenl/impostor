@@ -19,7 +19,7 @@ app.use((_req, res, next) => {
 
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
-app.post('/token', async (req, res) => {
+app.post('/api/token', async (req, res) => {
   const { code } = req.body;
   try {
     const response = await fetch('https://discord.com/api/oauth2/token', {
