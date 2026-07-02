@@ -35,7 +35,10 @@ export function Lobby() {
         <ul className="player-slots">
           {slots.map(({ player, emoji, slot }) => (
             <li key={slot} className={player ? 'slot filled' : 'slot empty'}>
-              <span className="slot-emoji">{emoji}</span>
+              {player?.avatar
+                ? <img src={player.avatar} alt={player.username} className="slot-avatar" />
+                : <span className="slot-emoji">{emoji}</span>
+              }
               <span className="slot-name">
                 {player ? player.username : `Jugador ${slot}`}
               </span>

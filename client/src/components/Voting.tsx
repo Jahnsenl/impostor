@@ -42,7 +42,10 @@ export function Voting() {
                     className="vote-card"
                     onClick={() => submitVote(player.id)}
                   >
-                    <span className="vote-emoji">{emoji}</span>
+                    {player.avatar
+                      ? <img src={player.avatar} alt={name} className="vote-avatar" />
+                      : <span className="vote-emoji">{emoji}</span>
+                    }
                     <span className="vote-name">{name}</span>
                   </button>
                 );
