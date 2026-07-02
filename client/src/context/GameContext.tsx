@@ -14,6 +14,7 @@ interface GameContextType {
   currentUserId: string;
   roomId: string;
   isConnected: boolean;
+  authStep: string;
   setImpostorCount: (count: number) => void;
   setDebateTime: (time: number) => void;
   setGiveImpostorHint: (enabled: boolean) => void;
@@ -43,12 +44,14 @@ export function GameProvider({
   currentUsername,
   currentAvatar,
   roomId,
+  authStep,
 }: {
   children: ReactNode;
   currentUserId: string;
   currentUsername: string;
   currentAvatar: string;
   roomId: string;
+  authStep: string;
 }) {
   const [gameState, setGameState] = useState<GameState>(initialState);
   const [socket, setSocket] = useState<Socket | null>(null);
@@ -87,7 +90,7 @@ export function GameProvider({
 
   return (
     <GameContext.Provider value={{
-      gameState, currentUserId, roomId, isConnected,
+      gameState, currentUserId, roomId, isConnected, authStep,
       setImpostorCount, setDebateTime, setGiveImpostorHint,
       startGame, startVoting, submitVote, submitImpostorGuess,
       nextRound, resetGame,
