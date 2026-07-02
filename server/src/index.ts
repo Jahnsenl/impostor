@@ -22,6 +22,7 @@ app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 app.post('/token', async (req, res) => {
   const { code } = req.body;
+  console.log('[/token] called, code present:', !!code);
   try {
     const response = await fetch('https://discord.com/api/oauth2/token', {
       method: 'POST',
@@ -39,6 +40,7 @@ app.post('/token', async (req, res) => {
       res.status(400).json({ error: data.error ?? 'token_error' });
       return;
     }
+    console.log('[/token] success');
     res.json({ access_token: data.access_token });
   } catch (e) {
     console.error('[/token] fetch error:', e);
