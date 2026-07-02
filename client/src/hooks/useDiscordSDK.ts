@@ -3,9 +3,9 @@ import { DiscordSDK } from '@discord/embedded-app-sdk';
 
 const CLIENT_ID = '1521711785466531851';
 
-const isInDiscord = (() => {
-  try { return window.self !== window.top; } catch { return true; }
-})();
+const isInDiscord =
+  window.location.hostname.endsWith('.discordsays.com') ||
+  (() => { try { return window.self !== window.top; } catch { return true; } })();
 
 export function useDiscordSDK() {
   const [roomId, setRoomId] = useState('dev-room');

@@ -17,6 +17,7 @@ app.use((_req, res, next) => {
   next();
 });
 
+app.options('*', (_req, res) => res.status(204).end());
 app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 
 app.post('/api/token', async (req, res) => {
@@ -280,9 +281,15 @@ io.on('connection', (socket: Socket) => {
   socket.on('disconnect', () => {
     rooms.forEach((room, roomId) => {
       const idx = room.players.findIndex(p => p.socketId === socket.id);
-      if (idx !== -1 && room.phase === 'lobby') {
+      if (idx === -1) return;
+      if (room.phase === 'lobby') {
         room.players.splice(idx, 1);
         broadcast(roomId);
+      } else if (room.phase === 'voting' && !room.players[idx].hasVoted && !room.players[idx].isEliminated) {
+        room.players[idx].hasVoted = true;
+        const allVoted = room.players.every(p => p.hasVoted || p.isEliminated);
+        if (allVoted) resolveVoting(roomId);
+        else broadcast(roomId);
       }
     });
   });
