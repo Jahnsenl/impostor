@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { io, Socket } from 'socket.io-client';
 import type { GameState } from '../types/game';
 
-const isInDiscord = window.self !== window.top;
+const isInDiscord = (() => { try { return window.self !== window.top; } catch { return true; } })();
 const SERVER_URL = isInDiscord ? '' : (import.meta.env.VITE_SERVER_URL ?? '');
 const SOCKET_PATH = isInDiscord ? '/api/socket.io' : '/socket.io';
 
