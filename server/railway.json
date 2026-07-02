@@ -1,8 +1,8 @@
 {
   "$schema": "https://railway.app/railway.schema.json",
   "deploy": {
-    "buildCommand": "cd server && npm install && npm run build",
-    "startCommand": "cd server && node dist/index.js",
+    "buildCommand": "npm install && npm run build",
+    "startCommand": "node dist/index.js",
     "healthcheckPath": "/health",
     "healthcheckTimeout": 30
   }
