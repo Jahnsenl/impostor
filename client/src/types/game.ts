@@ -15,6 +15,7 @@ export interface Player {
   impostorHint?: string;
   clue?: string;
   hasVoted: boolean;
+  inVotingScreen: boolean;
   voteTarget?: string;
   isEliminated: boolean;
   score: number;
@@ -31,6 +32,7 @@ export interface GameState {
   impostorCount: number;
   debateTime: number;
   debateStartTime?: number;
+  resolutionStartTime?: number;
   giveImpostorHint: boolean;
 }
 
@@ -138,12 +140,9 @@ export const WORDS = [
   { word: 'Regalo', hints: ['Cumpleaños', 'Lazo', 'Sorpresa'] },
   { word: 'Submarino', hints: ['Profundidad', 'Torpedos', 'Periscopio'] },
   { word: 'Helicóptero', hints: ['Hélices', 'Despegue', 'Rotor'] },
-  { word: 'Skater', hints: ['Rampas', 'Skatepark', 'Trucos'] },
   { word: 'Surf', hints: ['Olas', 'Tabla', 'Playa'] },
   { word: 'Esquí', hints: ['Nieve', 'Pistas', 'Telesilla'] },
-  { word: 'Snowboard', hints: ['Montaña', 'Deslizamiento', 'Nieve'] },
   { word: 'Paracaídas', hints: ['Caída', 'Aire', 'Salto'] },
-  { word: 'Globo aerostático', hints: ['Aire caliente', 'Vuelo', 'Cesta'] },
   { word: 'Trampolín', hints: ['Rebote', 'Saltos', 'Gimnasia'] },
   { word: 'Hacha', hints: ['Madera', 'Corte', 'Leñador'] },
   { word: 'Cuchillo', hints: ['Cocina', 'Hoja', 'Cortar'] },
@@ -163,7 +162,6 @@ export const WORDS = [
   { word: 'Cortina', hints: ['Ventana', 'Tela', 'Luz'] },
   { word: 'Lámpara', hints: ['Luz', 'Interruptor', 'Bombilla'] },
   { word: 'Ventilador', hints: ['Aire', 'Verano', 'Aspas'] },
-  { word: 'Aire acondicionado', hints: ['Frío', 'Control', 'Verano'] },
   { word: 'Calefacción', hints: ['Invierno', 'Radiador', 'Calor'] },
   { word: 'Chimenea', hints: ['Fuego', 'Humo', 'Leña'] },
   { word: 'Cerilla', hints: ['Fuego', 'Caja', 'Fósforo'] },
@@ -202,10 +200,7 @@ export const WORDS = [
   { word: 'Templo', hints: ['Religión', 'Culto', 'Dios'] },
   { word: 'Monje', hints: ['Oración', 'Monasterio', 'Hábito'] },
   { word: 'Monja', hints: ['Convento', 'Religión', 'Hábito'] },
-  { word: 'Libro de recetas', hints: ['Cocina', 'Platos', 'Ingredientes'] },
   { word: 'Chef', hints: ['Cocina', 'Estrella', 'Michelin'] },
-  { word: 'Restaurante italiano', hints: ['Pasta', 'Pizza', 'Italia'] },
-  { word: 'Sushi bar', hints: ['Japón', 'Pescado', 'Alga'] },
   { word: 'Panadería', hints: ['Pan', 'Horno', 'Masa'] },
   { word: 'Carnicería', hints: ['Carne', 'Corte', 'Res'] },
   { word: 'Pescadería', hints: ['Pescado', 'Mar', 'Fresco'] },
@@ -229,7 +224,6 @@ export const WORDS = [
   { word: 'Seguro', hints: ['Protección', 'Pago', 'Póliza'] },
   { word: 'Dinero', hints: ['Billetes', 'Banco', 'Monedas'] },
   { word: 'Tarjeta', hints: ['Crédito', 'Pago', 'Plástico'] },
-  { word: 'Cajero automático', hints: ['Retiro', 'Banco', 'PIN'] },
   { word: 'Moneda', hints: ['Metal', 'Valor', 'Cara'] },
   { word: 'Bolsa', hints: ['Comercio', 'Mercado', 'Acciones'] },
   { word: 'Empresa', hints: ['Trabajo', 'Oficina', 'Negocio'] },
@@ -243,17 +237,14 @@ export const WORDS = [
   { word: 'Periodista', hints: ['Entrevista', 'Reportaje', 'Micrófono'] },
   { word: 'Televisión', hints: ['Noticias', 'Pantalla', 'Antena'] },
   { word: 'Radio', hints: ['Sonido', 'Emisión', 'Frecuencia'] },
-  { word: 'Podcast', hints: ['Audio', 'Internet', 'Episodio'] },
   { word: 'WiFi', hints: ['Conexión', 'Router', 'Señal'] },
   { word: 'Contraseña', hints: ['Seguridad', 'Acceso', 'Clave'] },
   { word: 'Usuario', hints: ['Cuenta', 'Login', 'Perfil'] },
   { word: 'Aplicación', hints: ['Móvil', 'Software', 'Descargar'] },
   { word: 'Programa', hints: ['Código', 'Sistema', 'Software'] },
   { word: 'Computación', hints: ['Datos', 'Tecnología', 'Código'] },
-  { word: 'Inteligencia artificial', hints: ['Algoritmo', 'Datos', 'Aprendizaje'] },
   { word: 'Máquina', hints: ['Motor', 'Industria', 'Fabricar'] },
   { word: 'Fábrica', hints: ['Producción', 'Obreros', 'Cadena'] },
-  { word: 'Robot industrial', hints: ['Automatización', 'Brazo', 'Fábrica'] },
   { word: 'Satélite', hints: ['Órbita', 'Espacio', 'Señal'] },
   { word: 'Telescopio', hints: ['Estrellas', 'Observación', 'Lente'] },
   { word: 'Microscopio', hints: ['Células', 'Ciencia', 'Lente'] },
@@ -299,28 +290,20 @@ export const WORDS = [
   { word: 'Anillo', hints: ['Boda', 'Joya', 'Dedo'] },
   { word: 'Collar', hints: ['Cuello', 'Joya', 'Cadena'] },
   { word: 'Pulsera', hints: ['Mano', 'Accesorio', 'Joya'] },
-  { word: 'Reloj de arena', hints: ['Tiempo', 'Arena', 'Ampolla'] },
   { word: 'Calendario', hints: ['Días', 'Meses', 'Fecha'] },
   { word: 'Agenda', hints: ['Planificación', 'Horario', 'Citas'] },
   { word: 'Lista', hints: ['Orden', 'Tareas', 'Anotar'] },
   { word: 'Tarea', hints: ['Obligación', 'Escuela', 'Deberes'] },
   { word: 'Proyecto', hints: ['Trabajo', 'Equipo', 'Plazo'] },
   { word: 'Presentación', hints: ['Diapositivas', 'Exposición', 'Público'] },
-  { word: 'PowerPoint', hints: ['Diapositivas', 'Oficina', 'Microsoft'] },
   { word: 'Documento', hints: ['Archivo', 'Texto', 'Papel'] },
   { word: 'Archivo', hints: ['Datos', 'Computadora', 'Guardar'] },
   { word: 'Carpeta', hints: ['Orden', 'Archivos', 'Documentos'] },
   { word: 'Papelera', hints: ['Borrar', 'Archivo', 'Tirar'] },
-  { word: 'Backup', hints: ['Copia', 'Datos', 'Seguridad'] },
-  { word: 'Nube digital', hints: ['Internet', 'Almacenamiento', 'Sincronizar'] },
   { word: 'Servidor', hints: ['Datos', 'Red', 'Hosting'] },
-  { word: 'Firewall', hints: ['Seguridad', 'Red', 'Protección'] },
   { word: 'Hacker', hints: ['Seguridad', 'Sistema', 'Código'] },
-  { word: 'Virus informático', hints: ['Malware', 'Computadora', 'Infectar'] },
   { word: 'Antivirus', hints: ['Protección', 'Software', 'Escanear'] },
-  { word: 'Sistema operativo', hints: ['Windows', 'Software', 'Arranque'] },
   { word: 'Linux', hints: ['Código', 'Sistema', 'Abierto'] },
-  { word: 'MacOS', hints: ['Apple', 'Sistema', 'Mac'] },
   { word: 'Smartphone', hints: ['Pantalla', 'Aplicaciones', 'Táctil'] },
   { word: 'Tablet', hints: ['Pantalla', 'Portátil', 'Táctil'] },
   { word: 'Teclado', hints: ['Escritura', 'Letras', 'Teclas'] },
@@ -328,10 +311,4 @@ export const WORDS = [
   { word: 'Monitor', hints: ['Pantalla', 'PC', 'Imagen'] },
   { word: 'Altavoz', hints: ['Sonido', 'Música', 'Volumen'] },
   { word: 'Auriculares', hints: ['Audio', 'Escuchar', 'Música'] },
-  { word: 'Micrófono inalámbrico', hints: ['Voz', 'Audio', 'Concierto'] },
-  { word: 'Cámara web', hints: ['Video', 'Ordenador', 'Videollamada'] },
-  { word: 'Streaming', hints: ['Internet', 'Directo', 'Plataforma'] },
-  { word: 'YouTube', hints: ['Videos', 'Internet', 'Canal'] },
-  { word: 'TikTok', hints: ['Videos', 'Viral', 'Baile'] },
-  { word: 'Instagram', hints: ['Fotos', 'Redes', 'Stories'] },
 ];

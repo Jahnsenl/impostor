@@ -59,6 +59,7 @@ interface Player {
   isImpostor: boolean;
   impostorHint?: string;
   hasVoted: boolean;
+  inVotingScreen: boolean;
   voteTarget?: string;
   isEliminated: boolean;
   score: number;
@@ -76,6 +77,7 @@ interface GameState {
   impostorCount: number;
   debateTime: number;
   debateStartTime?: number;
+  resolutionStartTime?: number;
   giveImpostorHint: boolean;
 }
 
@@ -104,6 +106,26 @@ function broadcast(roomId: string) {
   io.to(roomId).emit('game_state', rooms.get(roomId));
 }
 
+function normalize(s: string): string {
+  return s.toLowerCase().trim().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+const resolutionTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function handleImpostorTimeout(roomId: string) {
+  const room = getRoom(roomId);
+  if (room.phase !== 'resolution') return;
+  resolutionTimers.delete(roomId);
+  room.impostorGuessedWord = '';
+  room.players = room.players.map(p => ({
+    ...p,
+    score: p.score + (!p.isImpostor ? 1 : 0),
+  }));
+  room.winner = 'innocents';
+  room.phase = 'ended';
+  broadcast(roomId);
+}
+
 // ── Vote resolution ──────────────────────────────────────────────────────────
 
 function resolveVoting(roomId: string) {
@@ -130,7 +152,11 @@ function resolveVoting(roomId: string) {
 
     if (remainingImpostors.length === 0) {
       room.phase = 'resolution';
+      room.resolutionStartTime = Date.now();
+      const timer = setTimeout(() => handleImpostorTimeout(roomId), 30000);
+      resolutionTimers.set(roomId, timer);
     } else {
+      room.players = room.players.map(p => ({ ...p, inVotingScreen: false, hasVoted: false, voteTarget: undefined }));
       room.phase = 'debate';
       room.debateStartTime = Date.now();
     }
@@ -162,7 +188,7 @@ io.on('connection', (socket: Socket) => {
       room.players.push({
         id: userId, username, avatar: avatar ?? '',
         isImpostor: false, hasVoted: false, isEliminated: false,
-        score: 0, socketId: socket.id,
+        inVotingScreen: false, score: 0, socketId: socket.id,
       });
     }
 
@@ -198,7 +224,7 @@ io.on('connection', (socket: Socket) => {
         impostorHint: isImpostor && room.giveImpostorHint
           ? shuffledHints[idx % shuffledHints.length]
           : undefined,
-        hasVoted: false, voteTarget: undefined, isEliminated: false,
+        hasVoted: false, voteTarget: undefined, isEliminated: false, inVotingScreen: false,
       };
     });
 
@@ -214,7 +240,16 @@ io.on('connection', (socket: Socket) => {
   socket.on('start_voting', ({ roomId }: { roomId: string }) => {
     const room = getRoom(roomId);
     if (room.phase !== 'debate') return;
-    room.phase = 'voting';
+    room.players = room.players.map(p => ({ ...p, inVotingScreen: true }));
+    broadcast(roomId);
+  });
+
+  socket.on('enter_voting', ({ roomId, userId }: { roomId: string; userId: string }) => {
+    const room = getRoom(roomId);
+    if (room.phase !== 'debate') return;
+    const player = room.players.find(p => p.id === userId);
+    if (!player || player.isEliminated) return;
+    player.inVotingScreen = true;
     broadcast(roomId);
   });
 
@@ -222,10 +257,10 @@ io.on('connection', (socket: Socket) => {
     roomId: string; userId: string; targetId: string;
   }) => {
     const room = getRoom(roomId);
-    if (room.phase !== 'voting') return;
+    if (room.phase !== 'debate') return;
 
     const player = room.players.find(p => p.id === userId);
-    if (!player || player.hasVoted || player.isEliminated) return;
+    if (!player || !player.inVotingScreen || player.hasVoted || player.isEliminated) return;
 
     player.hasVoted = true;
     player.voteTarget = targetId;
@@ -245,8 +280,11 @@ io.on('connection', (socket: Socket) => {
     const submitter = room.players.find(p => p.socketId === socket.id);
     if (!submitter?.isImpostor) return;
 
+    const existingTimer = resolutionTimers.get(roomId);
+    if (existingTimer) { clearTimeout(existingTimer); resolutionTimers.delete(roomId); }
+
     room.impostorGuessedWord = guess;
-    const correct = guess.toLowerCase().trim() === room.secretWord.toLowerCase();
+    const correct = normalize(guess) === normalize(room.secretWord);
 
     room.players = room.players.map(p => ({
       ...p,
@@ -260,11 +298,13 @@ io.on('connection', (socket: Socket) => {
   socket.on('next_round', ({ roomId }: { roomId: string }) => {
     const room = getRoom(roomId);
     if (room.phase !== 'ended') return;
+    const t = resolutionTimers.get(roomId);
+    if (t) { clearTimeout(t); resolutionTimers.delete(roomId); }
     const scores = Object.fromEntries(room.players.map(p => [p.id, p.score]));
     const fresh = createRoom();
     fresh.players = room.players.map(p => ({
       ...p, isImpostor: false, impostorHint: undefined,
-      hasVoted: false, voteTarget: undefined, isEliminated: false,
+      hasVoted: false, voteTarget: undefined, isEliminated: false, inVotingScreen: false,
       score: scores[p.id] ?? 0,
     }));
     fresh.roundNumber = room.roundNumber + 1;
@@ -276,6 +316,8 @@ io.on('connection', (socket: Socket) => {
   });
 
   socket.on('reset_game', ({ roomId }: { roomId: string }) => {
+    const t = resolutionTimers.get(roomId);
+    if (t) { clearTimeout(t); resolutionTimers.delete(roomId); }
     rooms.set(roomId, createRoom());
     broadcast(roomId);
   });
@@ -287,7 +329,7 @@ io.on('connection', (socket: Socket) => {
       if (room.phase === 'lobby') {
         room.players.splice(idx, 1);
         broadcast(roomId);
-      } else if (room.phase === 'voting' && !room.players[idx].hasVoted && !room.players[idx].isEliminated) {
+      } else if (room.phase === 'debate' && room.players[idx].inVotingScreen && !room.players[idx].hasVoted && !room.players[idx].isEliminated) {
         room.players[idx].hasVoted = true;
         const allVoted = room.players.every(p => p.hasVoted || p.isEliminated);
         if (allVoted) resolveVoting(roomId);

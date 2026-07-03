@@ -1,11 +1,20 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useGame } from '../context/GameContext';
 
 export function Resolution() {
   const { gameState, currentUserId, submitImpostorGuess } = useGame();
   const [guess, setGuess] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(30);
   const currentPlayer = gameState.players.find(p => p.id === currentUserId);
+
+  useEffect(() => {
+    if (!gameState.resolutionStartTime) return;
+    const calc = () => Math.max(0, 30 - Math.floor((Date.now() - gameState.resolutionStartTime!) / 1000));
+    setTimeLeft(calc());
+    const interval = setInterval(() => setTimeLeft(calc()), 500);
+    return () => clearInterval(interval);
+  }, [gameState.resolutionStartTime]);
 
   if (!currentPlayer) return null;
 
@@ -42,6 +51,9 @@ export function Resolution() {
     <div className="resolution">
       <h1>🎯 Última oportunidad</h1>
       <p>¡Te han descubierto! Pero aún puedes ganar si adivinas la palabra.</p>
+      <div className={`timer ${timeLeft <= 10 ? 'danger' : timeLeft <= 20 ? 'warning' : ''}`}>
+        {timeLeft}s
+      </div>
 
       <div className="eliminated-info">
         <h2>Has sido eliminado</h2>

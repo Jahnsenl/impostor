@@ -8,7 +8,7 @@ import { GameEnded } from './components/GameEnded';
 import './App.css';
 
 function GameContent() {
-  const { gameState, isConnected } = useGame();
+  const { gameState, currentUserId, isConnected } = useGame();
 
   if (!isConnected) {
     return (
@@ -20,12 +20,13 @@ function GameContent() {
   }
 
   const sortedPlayers = [...gameState.players].sort((a, b) => b.score - a.score);
+  const currentPlayer = gameState.players.find(p => p.id === currentUserId);
 
   const renderPhase = () => {
+    if (gameState.phase === 'debate' && currentPlayer?.inVotingScreen) return <Voting />;
     switch (gameState.phase) {
       case 'lobby':      return <Lobby />;
       case 'debate':     return <Debate />;
-      case 'voting':     return <Voting />;
       case 'resolution': return <Resolution />;
       case 'ended':      return <GameEnded />;
       default:           return <Lobby />;

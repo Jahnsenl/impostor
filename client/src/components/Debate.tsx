@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useGame } from '../context/GameContext';
 
 export function Debate() {
-  const { gameState, currentUserId, startVoting } = useGame();
+  const { gameState, currentUserId, startVoting, enterVoting } = useGame();
   const currentPlayer = gameState.players.find(p => p.id === currentUserId);
   const [timeLeft, setTimeLeft] = useState(gameState.debateTime * 60);
   const startVotingRef = useRef(startVoting);
@@ -66,7 +66,7 @@ export function Debate() {
         <p className="timer-label">Tiempo de debate</p>
       </div>
 
-      <button className="vote-button" onClick={startVoting}>
+      <button className="vote-button" onClick={enterVoting}>
         Votar
       </button>
     </div>

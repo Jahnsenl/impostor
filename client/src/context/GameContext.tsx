@@ -19,6 +19,7 @@ interface GameContextType {
   setGiveImpostorHint: (enabled: boolean) => void;
   startGame: () => void;
   startVoting: () => void;
+  enterVoting: () => void;
   submitVote: (targetId: string) => void;
   submitImpostorGuess: (guess: string) => void;
   nextRound: () => void;
@@ -78,9 +79,10 @@ export function GameProvider({
   const setImpostorCount = (impostorCount: number) => emit('update_settings', { impostorCount });
   const setDebateTime    = (debateTime: number)    => emit('update_settings', { debateTime });
   const setGiveImpostorHint = (giveImpostorHint: boolean) => emit('update_settings', { giveImpostorHint });
-  const startGame   = () => emit('start_game');
-  const startVoting = () => emit('start_voting');
-  const submitVote  = (targetId: string) => emit('submit_vote', { userId: currentUserId, targetId });
+  const startGame    = () => emit('start_game');
+  const startVoting  = () => emit('start_voting');
+  const enterVoting  = () => emit('enter_voting', { userId: currentUserId });
+  const submitVote   = (targetId: string) => emit('submit_vote', { userId: currentUserId, targetId });
   const submitImpostorGuess = (guess: string) => emit('submit_guess', { guess });
   const nextRound  = () => emit('next_round');
   const resetGame  = () => emit('reset_game');
@@ -89,7 +91,7 @@ export function GameProvider({
     <GameContext.Provider value={{
       gameState, currentUserId, roomId, isConnected,
       setImpostorCount, setDebateTime, setGiveImpostorHint,
-      startGame, startVoting, submitVote, submitImpostorGuess,
+      startGame, startVoting, enterVoting, submitVote, submitImpostorGuess,
       nextRound, resetGame,
     }}>
       {children}
