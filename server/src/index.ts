@@ -64,6 +64,7 @@ interface Player {
   isEliminated: boolean;
   score: number;
   socketId: string;
+  foundImpostorThisGame: boolean;
 }
 
 interface GameState {
@@ -79,6 +80,7 @@ interface GameState {
   debateStartTime?: number;
   resolutionStartTime?: number;
   giveImpostorHint: boolean;
+  unanimityAchieved?: boolean;
 }
 
 // ── Room store ───────────────────────────────────────────────────────────────
@@ -117,16 +119,31 @@ function handleImpostorTimeout(roomId: string) {
   if (room.phase !== 'resolution') return;
   resolutionTimers.delete(roomId);
   room.impostorGuessedWord = '';
-  room.players = room.players.map(p => ({
-    ...p,
-    score: p.score + (!p.isImpostor ? 1 : 0),
-  }));
+
+  // Unanimity bonus: +1 to all innocent (non-eliminated) players
+  if (room.unanimityAchieved) {
+    room.players = room.players.map(p => ({
+      ...p,
+      score: p.score + (!p.isEliminated ? 1 : 0),
+    }));
+  }
+
   room.winner = 'innocents';
   room.phase = 'ended';
   broadcast(roomId);
 }
 
 // ── Vote resolution ──────────────────────────────────────────────────────────
+
+function scoreImpostorsNotDiscovered(room: GameState) {
+  room.players = room.players.map(p => {
+    if (!p.isImpostor || p.isEliminated) return p;
+    const others = room.players.filter(q => q.id !== p.id && !q.isEliminated);
+    const votesAgainst = others.filter(q => q.voteTarget === p.id).length;
+    const didntVote = others.length - votesAgainst;
+    return { ...p, score: p.score + Math.min(4, didntVote) };
+  });
+}
 
 function resolveVoting(roomId: string) {
   const room = getRoom(roomId);
@@ -139,15 +156,48 @@ function resolveVoting(roomId: string) {
   let maxVotes = 0;
   tally.forEach((count) => { if (count > maxVotes) maxVotes = count; });
   const tied = [...tally.entries()].filter(([, c]) => c === maxVotes).map(([id]) => id);
-  const eliminatedId = tied[Math.floor(Math.random() * tied.length)];
 
+  // Tie involving an active impostor → tie favors impostor: no discovery, no player scoring
+  const tieInvolvesImpostor = tied.length > 1 && tied.some(id => {
+    const p = room.players.find(q => q.id === id);
+    return p?.isImpostor && !p.isEliminated;
+  });
+
+  if (tieInvolvesImpostor) {
+    room.eliminatedPlayer = undefined;
+    scoreImpostorsNotDiscovered(room);
+    room.winner = 'impostor';
+    room.phase = 'ended';
+    broadcast(roomId);
+    return;
+  }
+
+  // No impostor in tie — pick eliminated player randomly among tied
+  const eliminatedId = tied[Math.floor(Math.random() * tied.length)];
   const eliminated = room.players.find(p => p.id === eliminatedId);
   room.eliminatedPlayer = eliminatedId;
 
   if (eliminated?.isImpostor) {
+    // Impostor officially discovered (most votes, no tie with other impostors)
     room.players = room.players.map(p =>
       p.id === eliminatedId ? { ...p, isEliminated: true } : p
     );
+
+    // Score player votes: +1 for voting the discovered impostor, -1 otherwise (with 2-impostor exception)
+    room.players = room.players.map(p => {
+      if (p.id === eliminatedId || p.isEliminated) return p;
+      if (p.voteTarget === eliminatedId) {
+        return { ...p, score: p.score + 1, foundImpostorThisGame: true };
+      }
+      return { ...p, score: p.score + (p.foundImpostorThisGame ? 0 : -1) };
+    });
+
+    // Track unanimity across all rounds: if this round wasn't unanimous, clear the flag
+    const activePlayers = room.players.filter(p => !p.isEliminated);
+    if (!activePlayers.every(p => p.voteTarget === eliminatedId)) {
+      room.unanimityAchieved = false;
+    }
+
     const remainingImpostors = room.players.filter(p => p.isImpostor && !p.isEliminated);
 
     if (remainingImpostors.length === 0) {
@@ -161,9 +211,17 @@ function resolveVoting(roomId: string) {
       room.debateStartTime = Date.now();
     }
   } else {
-    room.players = room.players.map(p =>
-      p.isImpostor ? { ...p, score: p.score + 3 } : p
-    );
+    // Innocent eliminated — impostors win
+    // Votes are only "correct" when an impostor is officially discovered, so voting for an impostor
+    // here yields 0; voting for the eliminated innocent yields -1 (with 2-impostor exception)
+    room.players = room.players.map(p => {
+      if (p.id === eliminatedId || p.isEliminated) return p;
+      const target = room.players.find(t => t.id === p.voteTarget);
+      if (target?.isImpostor) return p; // voted for impostor but not discovered → 0
+      return { ...p, score: p.score + (p.foundImpostorThisGame ? 0 : -1) };
+    });
+
+    scoreImpostorsNotDiscovered(room);
     room.winner = 'impostor';
     room.phase = 'ended';
   }
@@ -189,6 +247,7 @@ io.on('connection', (socket: Socket) => {
         id: userId, username, avatar: avatar ?? '',
         isImpostor: false, hasVoted: false, isEliminated: false,
         inVotingScreen: false, score: 0, socketId: socket.id,
+        foundImpostorThisGame: false,
       });
     }
 
@@ -225,6 +284,7 @@ io.on('connection', (socket: Socket) => {
           ? shuffledHints[idx % shuffledHints.length]
           : undefined,
         hasVoted: false, voteTarget: undefined, isEliminated: false, inVotingScreen: false,
+        foundImpostorThisGame: false,
       };
     });
 
@@ -234,6 +294,7 @@ io.on('connection', (socket: Socket) => {
     room.eliminatedPlayer = undefined;
     room.impostorGuessedWord = undefined;
     room.winner = undefined;
+    room.unanimityAchieved = true; // set to false if any voting round is not unanimous
     broadcast(roomId);
   });
 
@@ -286,11 +347,27 @@ io.on('connection', (socket: Socket) => {
     room.impostorGuessedWord = guess;
     const correct = normalize(guess) === normalize(room.secretWord);
 
-    room.players = room.players.map(p => ({
-      ...p,
-      score: p.score + (correct && p.isImpostor ? 2 : !correct && !p.isImpostor ? 1 : 0),
-    }));
-    room.winner = correct ? 'impostor' : 'innocents';
+    if (correct) {
+      // +1 for the correct guess + +1 per active player who didn't vote for them, capped at 4
+      const others = room.players.filter(p => p.id !== submitter.id && !p.isEliminated);
+      const votesForImpostor = others.filter(p => p.voteTarget === submitter.id).length;
+      const didntVoteFor = others.length - votesForImpostor;
+      const impostorPoints = Math.min(4, 1 + didntVoteFor);
+      room.players = room.players.map(p =>
+        p.id === submitter.id ? { ...p, score: p.score + impostorPoints } : p
+      );
+      room.winner = 'impostor';
+    } else {
+      // Impostor gets 0 points; unanimity bonus if achieved
+      if (room.unanimityAchieved) {
+        room.players = room.players.map(p => ({
+          ...p,
+          score: p.score + (!p.isEliminated ? 1 : 0),
+        }));
+      }
+      room.winner = 'innocents';
+    }
+
     room.phase = 'ended';
     broadcast(roomId);
   });
@@ -306,6 +383,7 @@ io.on('connection', (socket: Socket) => {
       ...p, isImpostor: false, impostorHint: undefined,
       hasVoted: false, voteTarget: undefined, isEliminated: false, inVotingScreen: false,
       score: scores[p.id] ?? 0,
+      foundImpostorThisGame: false,
     }));
     fresh.roundNumber = room.roundNumber + 1;
     fresh.impostorCount = room.impostorCount;
@@ -324,6 +402,7 @@ io.on('connection', (socket: Socket) => {
       ...p, isImpostor: false, impostorHint: undefined,
       hasVoted: false, voteTarget: undefined, isEliminated: false, inVotingScreen: false,
       score: 0,
+      foundImpostorThisGame: false,
     }));
     rooms.set(roomId, fresh);
     broadcast(roomId);
