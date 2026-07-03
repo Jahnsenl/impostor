@@ -318,7 +318,14 @@ io.on('connection', (socket: Socket) => {
   socket.on('reset_game', ({ roomId }: { roomId: string }) => {
     const t = resolutionTimers.get(roomId);
     if (t) { clearTimeout(t); resolutionTimers.delete(roomId); }
-    rooms.set(roomId, createRoom());
+    const room = getRoom(roomId);
+    const fresh = createRoom();
+    fresh.players = room.players.map(p => ({
+      ...p, isImpostor: false, impostorHint: undefined,
+      hasVoted: false, voteTarget: undefined, isEliminated: false, inVotingScreen: false,
+      score: 0,
+    }));
+    rooms.set(roomId, fresh);
     broadcast(roomId);
   });
 
